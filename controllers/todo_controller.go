@@ -1,0 +1,102 @@
+package controllers
+
+import (
+	"gomall/global"
+	"gomall/models"
+	"log"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+// CreateTodo 给用户创建一个todo
+func CreateTodo(ctx *gin.Context) {
+	var todo models.TodoList
+
+	if err := ctx.ShouldBindJSON(&todo); err != nil {
+		log.Printf("failed to create TodoList, error = %v", err)
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "非法请求"})
+		return
+	}
+
+	// 设置todo的ID(在中间件里定义过)
+	todo.UserID = ctx.GetUint("user_id")
+
+	// 给对应用户新建todo
+	if err := global.DB.Create(&todo).Error; err != nil {
+		log.Printf("failed to create a todoList, error = %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "服务器错误,请稍后再试"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"Code": http.StatusOK,"todo": todo})
+}
+
+func GetTodos(ctx *gin.Context) {
+	var todos []models.TodoList
+
+	if err := global.DB.Where("user_id = ?", ctx.GetUint("user_id")).Find(&todos).Error; err != nil {
+		log.Printf("failed to get todos, error = %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"Code": http.StatusInternalServerError,"error": "服务器错误,请稍后再试"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"Code": http.StatusOK,"todos": todos})
+}
+
+func GetTodoByID(ctx *gin.Context) {
+	var todo models.TodoList
+	id := ctx.Param("id")
+
+	if err := global.DB.Where("user_id = ? AND id = ?", ctx.GetUint("user_id"), id).First(&todo).Error; err != nil {
+		log.Printf("failed to get todo, error = %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"Code": http.StatusInternalServerError,"error":"服务器错误,请稍后再试"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"Code": http.StatusOK,"todo": todo})
+}
+
+func UpdateTodo(ctx *gin.Context) {
+	type Update struct {
+		Msg 		string	`json:"msg"`
+		Completed	bool	`json:"completed"`
+	}
+	var update Update
+	
+	id := ctx.Param("id")
+
+	var todo models.TodoList
+	if err := global.DB.Where("user_id = ? AND id = ?", ctx.GetUint("user_id"), id).First(&todo).Error; err != nil {
+		log.Printf("failed to get todo, error = %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"Code": http.StatusInternalServerError,"error":"服务器错误,请稍后再试"})
+		return
+	}
+
+	if err := ctx.ShouldBindJSON(&update); err != nil {
+		log.Printf("failed to update todo, error = %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"Code": http.StatusInternalServerError,"error":"服务器错误,请稍后再试"})
+		return
+	}
+
+	todo.Content = update.Msg
+	todo.Completed = update.Completed
+
+	global.DB.Save(&todo)
+
+	ctx.JSON(http.StatusOK, gin.H{"Code": http.StatusOK, "todo": todo})
+}
+
+func DelTodo(ctx *gin.Context) {
+	var todo models.TodoList
+	id := ctx.Param("id")
+
+	if err := global.DB.Where("user_id = ? AND id = ?", ctx.GetUint("user_id"), id).First(&todo).Error; err != nil {
+		log.Printf("failed to del todo, error = %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"Code": http.StatusInternalServerError,"error":"服务器错误,请稍后再试"})
+		return
+	}
+
+	global.DB.Delete(&todo)
+	ctx.JSON(http.StatusOK, gin.H{"Code":http.StatusOK})
+}

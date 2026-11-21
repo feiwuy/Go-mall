@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GoMall 鉴权 &amp; TodoList 测试台</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --line: #e3e6ea; --text: #1f2328;
+    --muted: #6b7280; --pri: #2563eb; --ok: #15803d; --err: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+    background: #111827; color: #fff;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .who { font-size: 12px; color: #9ca3af; }
+  header .spacer { flex: 1; }
+  header input {
+    width: 200px; padding: 4px 8px; border-radius: 4px;
+    border: 1px solid #374151; background: #111827; color: #fff; font: inherit; font-size: 12px;
+  }
+  main { max-width: 980px; margin: 20px auto 60px; padding: 0 16px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, button, select { font: inherit; }
+  input, select {
+    padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+    background: #fff; min-width: 0; color: var(--text);
+  }
+  input:focus, select:focus { outline: 2px solid #bfdbfe; border-color: var(--pri); }
+  button {
+    padding: 7px 14px; border: 1px solid transparent; border-radius: 6px;
+    background: var(--pri); color: #fff; cursor: pointer; white-space: nowrap;
+  }
+  button.ghost { background: #fff; color: var(--text); border-color: var(--line); }
+  button.danger { background: #fff; color: var(--err); border-color: #fecaca; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  header button.ghost { background: transparent; color: #fff; border-color: #374151; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { background: #fff; color: var(--muted); border-color: var(--line); }
+  .tabs button.active { background: var(--pri); color: #fff; border-color: var(--pri); }
+  .hint { color: var(--muted); font-size: 12px; }
+  .msg { border-radius: 6px; padding: 8px 10px; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+  .msg.ok { background: #f0fdf4; color: var(--ok); border: 1px solid #bbf7d0; }
+  .msg.err { background: #fef2f2; color: var(--err); border: 1px solid #fecaca; }
+  .msg:empty { display: none; }
+  .todo { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+  .todo .head { display: flex; align-items: center; gap: 8px; }
+  .todo .id { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .todo .title-text { flex: 1; min-width: 120px; word-break: break-all; }
+  .todo input.ctx { width: 100%; }
+  .todo.done .title-text { text-decoration: line-through; color: var(--muted); }
+  #log {
+    font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    max-height: 300px; overflow: auto; background: #0b1020; color: #c9d1d9;
+    border-radius: 8px; padding: 12px; margin: 12px 0 0;
+  }
+  #log div { white-space: pre-wrap; word-break: break-all; }
+  .log-ok { color: #7ee787; } .log-err { color: #ff7b72; } .log-info { color: #79c0ff; }
+  details summary { cursor: pointer; color: var(--muted); }
+  details pre { overflow: auto; font-size: 12px; background: #fafbfc; padding: 12px; border-radius: 6px; }
+  table.kv { border-collapse: collapse; width: 100%; }
+  table.kv td { border-bottom: 1px dashed var(--line); padding: 5px 0; font-size: 13px; }
+  table.kv td:first-child { color: var(--muted); width: 96px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>GoMall 测试台</h1>
+  <span class="who" id="who">未登录</span>
+  <div class="spacer"></div>
+  <span class="who">API</span>
+  <input id="api-base" spellcheck="false" />
+  <button class="ghost" id="btn-logout" hidden>退出登录</button>
+</header>
+
+<main>
+
+  <div class="msg" id="global-msg"></div>
+
+  <!-- ========== 未登录：注册 / 登录 ========== -->
+  <section class="card" id="auth-view">
+    <div class="tabs">
+      <button data-tab="login" class="active">登录</button>
+      <button data-tab="register">注册</button>
+    </div>
+
+    <div id="pane-login">
+      <div class="row">
+        <input id="login-username" placeholder="用户名" autocomplete="username" />
+        <input id="login-password" type="password" placeholder="密码" autocomplete="current-password" />
+        <button id="btn-login">登录</button>
+      </div>
+    </div>
+
+    <div id="pane-register" hidden>
+      <div class="row">
+        <input id="reg-username" placeholder="用户名" autocomplete="username" />
+        <input id="reg-password" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" />
+        <input id="reg-password2" type="password" placeholder="确认密码" autocomplete="new-password" />
+        <button id="btn-register">注册</button>
+      </div>
+    </div>
+
+    <div class="msg" id="auth-msg"></div>
+  </section>
+
+  <!-- ========== 已登录：个人信息 / 改密码 / Todo ========== -->
+  <div id="app-view" hidden style="display:grid;gap:16px">
+
+    <section class="card">
+      <h2>我的信息</h2>
+      <table class="kv">
+        <tr><td>ID</td><td id="u-id">-</td></tr>
+        <tr><td>用户名</td><td id="u-name">-</td></tr>
+        <tr><td>注册时间</td><td id="u-created">-</td></tr>
+        <tr><td>登录有效期</td><td id="u-exp">-</td></tr>
+        <tr><td>Token</td><td id="u-token" style="word-break:break-all;font-size:12px;color:#6b7280">-</td></tr>
+      </table>
+      <div class="hint" id="profile-hint" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:12px">
+        <input id="profile-username" placeholder="新的用户名" />
+        <input id="profile-password" type="password" placeholder="密码（必填）" autocomplete="new-password" />
+        <button id="btn-update-profile">保存</button>
+        <button class="ghost" id="btn-refresh-profile">刷新</button>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        PATCH /api/user/updateProfile 会同时更新用户名和密码，所以密码必填；不填会把密码改成空密码。
+      </div>
+      <div class="msg" id="profile-msg"></div>
+    </section>
+
+    <section class="card">
+      <h2>修改密码</h2>
+      <div class="row">
+        <input id="pwd-old" type="password" placeholder="当前密码" autocomplete="current-password" />
+        <input id="pwd-new" type="password" placeholder="新密码" autocomplete="new-password" />
+        <input id="pwd-new2" type="password" placeholder="确认新密码" autocomplete="new-password" />
+        <button id="btn-change-pwd">修改</button>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        也走 PATCH /api/user/updateProfile（用户名保持不变）。注意后端没校验"当前密码"是否正确。
+      </div>
+      <div class="msg" id="pwd-msg"></div>
+    </section>
+
+  </div>
+
+  <!-- 待办列表：始终可见，未登录时显示锁定提示 -->
+  <section class="card" id="todo-card">
+    <h2>待办列表</h2>
+
+    <div class="row" id="todo-lock" hidden>
+      <span class="hint">🔒 请先登录，登录后这里会自动加载你的待办</span>
+    </div>
+
+    <div id="todo-tools">
+      <div class="row">
+        <input id="todo-title" placeholder="标题" />
+        <input id="todo-ctx" placeholder="内容（可选）" />
+        <button id="btn-create-todo">创建</button>
+      </div>
+      <div class="row" style="margin:12px 0">
+        <select id="todo-filter">
+          <option value="">全部</option>
+          <option value="false">未完成</option>
+          <option value="true">已完成</option>
+        </select>
+        <button class="ghost" id="btn-refresh-todos">刷新</button>
+        <span class="hint" id="todo-count"></span>
+        <span class="hint">勾选 = 标记完成；改内容后点「保存内容」</span>
+      </div>
+    </div>
+
+    <div class="msg" id="todo-msg"></div>
+    <div id="todo-list"></div>
+    <div class="hint" style="margin-top:8px">
+      这里如果是空的，请看页面最下方的「请求日志」：200 说明确实没有数据；401 说明登录态失效；0 说明连不上后端。
+    </div>
+  </section>
+
+  <!-- ========== 请求日志：截图取证用 ========== -->
+  <section class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">请求日志</h2>
+      <button class="ghost" id="btn-clear-log">清空</button>
+    </div>
+    <div id="log"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>接口契约（前端按此调用，后端需实现）</summary>
+      <pre>
+POST   /api/user/register          {username, password}                 → 201 {token}
+POST   /api/user/login             {username, password}                 → 200 {token}
+POST   /api/user/logout            (Authorization)                      → 未实现，前端按本地清除处理
+GET    /api/user/profile           (Authorization)                      → 未实现
+PATCH  /api/user/updateProfile     (Authorization) {Username, Password}  → 200 {Code, user}
+                                     ⚠ 同时更新用户名和密码；用户名变了旧 token 会失效
+                                     ⚠ 未排除自身用户名 → 单独改密码会被当成"已占用"
+
+POST   /api/todo/create            (Authorization) {Title, Content}     → 200 {Code, todo}
+GET    /api/todo/getTodos          (Authorization)                      → 200 {Code, todos:[...]}
+GET    /api/todo/getTodo/:id       (Authorization)                      → 200 {Code, todo}
+PATCH  /api/todo/update/:id        (Authorization) {msg, completed}     → 200 {Code, todo}
+DELETE /api/todo/delTodo/:id       (Authorization)                      → 200 {Code}
+
+受保护接口读 Authorization 头，值形如 "Bearer &lt;jwt&gt;"。
+注意 PATCH 的 {msg, completed} 是整体覆盖：只想改内容时也要把原 completed 传回去。
+401 = 未登录/登录失效；404 = 路由不存在（后端没实现）或资源不属于你。
+      </pre>
+    </details>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var TOKEN_KEY = 'gomall_token';
+  var API_KEY = 'gomall_api';
+  var DEFAULT_API = location.protocol.indexOf('http') === 0 ? location.origin : 'http://localhost:3000';
+
+  // 后端真实路由（改后端路由时只改这里）
+  var ROUTES = {
+    register:   '/api/user/register',
+    login:      '/api/user/login',
+    logout:     '/api/user/logout',
+    profile:    '/api/user/profile',
+    updateProfile: '/api/user/updateProfile',
+    password:   '/api/user/password',
+    todoCreate: '/api/todo/create',
+    todoList:   '/api/todo/getTodos',
+    todoGet:    function (id) { return '/api/todo/getTodo/' + id; },
+    todoUpdate: function (id) { return '/api/todo/update/' + id; },
+    todoDelete: function (id) { return '/api/todo/delTodo/' + id; }
+  };
+
+  var state = {
+    token: localStorage.getItem(TOKEN_KEY) || '',
+    user: null
+  };
+
+  function $(sel) { return document.querySelector(sel); }
+
+  function apiBase() {
+    return (($('#api-base').value || DEFAULT_API).trim()).replace(/\/+$/, '');
+  }
+
+  // ---------- 小工具 ----------
+
+  function log(kind, text) {
+    var box = $('#log');
+    var line = document.createElement('div');
+    line.className = 'log-' + kind;
+    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+    while (box.childElementCount > 300) box.removeChild(box.firstChild);
+  }
+
+  function showMsg(sel, ok, text) {
+    var el = $(sel);
+    el.className = 'msg ' + (ok ? 'ok' : 'err');
+    el.textContent = text;
+  }
+
+  function clearMsg(sel) {
+    var el = $(sel);
+    el.className = 'msg';
+    el.textContent = '';
+  }
+
+  function fmtTime(v) {
+    if (!v) return '-';
+    var d = new Date(v);
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleString();
+  }
+
+  function pick(obj) {
+    for (var i = 1; i < arguments.length; i++) {
+      var k = arguments[i];
+      if (obj != null && obj[k] !== undefined && obj[k] !== null) return obj[k];
+    }
+    return undefined;
+  }
+
+  // 解析 JWT 的载荷（不校验签名，只用于展示用户名/有效期）
+  function b64urlDecode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) str += '=';
+    var bin = atob(str);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  function tokenClaims() {
+    var t = (state.token || '').replace(/^Bearer\s+/i, '');
+    var parts = t.split('.');
+    if (parts.length < 2) return null;
+    try {
+      return JSON.parse(b64urlDecode(parts[1]));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function fmtLeft(ms) {
+    if (ms <= 0) return '已过期';
+    var h = Math.floor(ms / 3600000);
+    var m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? h + ' 小时 ' + m + ' 分钟' : m + ' 分钟';
+  }
+
+  // 从 token 里能拿到的信息：用户名、过期时间
+  function renderIdentity() {
+    var claims = tokenClaims() || {};
+
+    var name = claims.username || claims.Username;
+    if (name) {
+      $('#u-name').textContent = name;
+      $('#who').textContent = '已登录：' + name;
+    }
+
+    if (claims.exp) {
+      var left = claims.exp * 1000 - Date.now();
+      $('#u-exp').textContent = new Date(claims.exp * 1000).toLocaleString() + '（' + fmtLeft(left) + '）';
+    } else {
+      $('#u-exp').textContent = 'token 里没有 exp';
+    }
+
+    $('#u-token').textContent = state.token || '-';
+  }
+
+  // 兼容裸响应和 {code, msg, data} 信封两种风格
+  function unwrap(body) {
+    if (body && typeof body === 'object' && typeof body.code === 'number' && 'data' in body) {
+      return body.data;
+    }
+    return body;
+  }
+
+  function errMsg(body, res) {
+    if (body && typeof body === 'object') {
+      return body.msg || body.error || body.message || ('HTTP ' + res.status + ' ' + res.statusText);
+    }
+    if (typeof body === 'string' && body.trim()) return body.slice(0, 200);
+    return 'HTTP ' + res.status + ' ' + res.statusText;
+  }
+
+  function authHeaderValue() {
+    if (!state.token) return '';
+    // 后端可能返回 "Bearer xxx"，也可能只返回裸 token，两种都兼容
+    return state.token.indexOf('Bearer ') === 0 ? state.token : 'Bearer ' + state.token;
+  }
+
+  function HttpError(message, status, body) {
+    this.name = 'HttpError';
+    this.message = message;
+    this.status = status;
+    this.body = body;
+  }
+  HttpError.prototype = Object.create(Error.prototype);
+  HttpError.prototype.constructor = HttpError;
+
+  // ---------- 统一请求封装 ----------
+
+  function api(method, path, body) {
+    var headers = {};
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    var auth = authHeaderValue();
+    if (auth) headers['Authorization'] = auth;
+
+    log('info', method + ' ' + path + (body !== undefined ? '  ' + JSON.stringify(body) : ''));
+
+    return fetch(apiBase() + path, {
+      method: method,
+      headers: headers,
+      body: body === undefined ? undefined : JSON.stringify(body)
+    }).catch(function (e) {
+      var tip = '无法连接后端 ' + apiBase() + '（服务是否启动？端口对吗？）';
+      log('err', '网络错误: ' + e.message);
+      showMsg('#global-msg', false, tip);
+      throw new HttpError(tip, 0, null);
+    }).then(function (res) {
+      clearMsg('#global-msg');
+      return res.text().then(function (text) {
+        var data = null;
+        if (text) {
+          try { data = JSON.parse(text); } catch (e) { data = text; }
+        }
+        log(res.ok ? 'ok' : 'err',
+            '← ' + res.status + '  ' + (typeof data === 'string' ? data.slice(0, 300) : JSON.stringify(data)));
+
+        if (res.status === 401) {
+          var had = !!state.token;
+          clearSession();
+          render();
+          if (had) showMsg('#auth-msg', false, '登录已失效，请重新登录');
+          throw new HttpError('登录已失效，请重新登录', 401, data);
+        }
+        if (!res.ok) throw new HttpError(errMsg(data, res), res.status, data);
+        return unwrap(data);
+      });
+    });
+  }
+
+  // ---------- 登录态与视图 ----------
+
+  function saveSession(token) {
+    state.token = token;
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+
+  function clearSession() {
+    state.token = '';
+    state.user = null;
+    localStorage.removeItem(TOKEN_KEY);
+  }
+
+  function render() {
+    // token 过期就直接当成未登录，避免界面显示"已登录"但所有请求 401
+    if (state.token) {
+      var c = tokenClaims();
+      if (c && c.exp && c.exp * 1000 <= Date.now()) {
+        clearSession();
+        showMsg('#auth-msg', false, '登录已过期，请重新登录');
+      }
+    }
+
+    var logged = !!state.token;
+    $('#auth-view').hidden = logged;
+    $('#app-view').hidden = !logged;
+    $('#btn-logout').hidden = !logged;
+    $('#who').textContent = logged ? '已登录' : '未登录';
+    $('#u-token').textContent = logged ? state.token : '-';
+
+    // 待办卡片始终可见：未登录时锁住工具条并提示
+    $('#todo-lock').hidden = logged;
+    $('#todo-tools').hidden = !logged;
+
+    if (logged) {
+      renderIdentity();
+      loadProfile();
+      loadTodos();
+    } else {
+      $('#u-id').textContent = '-';
+      $('#u-name').textContent = '-';
+      $('#u-created').textContent = '-';
+      $('#u-exp').textContent = '-';
+      $('#profile-hint').textContent = '';
+      $('#todo-list').innerHTML = '';
+      $('#todo-count').textContent = '';
+      clearMsg('#profile-msg');
+      clearMsg('#pwd-msg');
+      clearMsg('#todo-msg');
+    }
+  }
+
+  // ---------- 注册 / 登录 / 退出 ----------
+
+  function switchTab(name) {
+    var isLogin = name === 'login';
+    $('#pane-login').hidden = !isLogin;
+    $('#pane-register').hidden = isLogin;
+    var tabs = document.querySelectorAll('.tabs button');
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === name);
+    }
+  }
+
+  function doRegister() {
+    clearMsg('#auth-msg');
+    var username = $('#reg-username').value.trim();
+    var pwd = $('#reg-password').value;
+    var pwd2 = $('#reg-password2').value;
+
+    if (!username) return showMsg('#auth-msg', false, '请填写用户名');
+    if (pwd.length < 6) return showMsg('#auth-msg', false, '密码至少 6 位');
+    if (pwd !== pwd2) return showMsg('#auth-msg', false, '两次输入的密码不一致');
+
+    api('POST', ROUTES.register, { username: username, password: pwd })
+      .then(function () {
+        showMsg('#auth-msg', true, '注册成功，请登录');
+        switchTab('login');
+        $('#login-username').value = username;
+        $('#reg-username').value = '';
+        $('#reg-password').value = '';
+        $('#reg-password2').value = '';
+        $('#login-password').focus();
+      })
+      .catch(function (e) {
+        showMsg('#auth-msg', false, e.message);
+      });
+  }
+
+  function doLogin() {
+    clearMsg('#auth-msg');
+    var username = $('#login-username').value.trim();
+    var password = $('#login-password').value;
+    if (!username || !password) return showMsg('#auth-msg', false, '请填写用户名和密码');
+
+    api('POST', ROUTES.login, { username: username, password: password })
+      .then(function (data) {
+        var token = '';
+        if (typeof data === 'string') token = data;
+        else token = pick(data, 'token', 'Token', 'access_token', 'accessToken') || '';
+
+        if (!token) throw new HttpError('登录成功但响应里没有 token 字段', 0, data);
+
+        saveSession(String(token));
+        $('#login-password').value = '';
+        clearMsg('#auth-msg');
+        renderIdentity();
+        render();
+        showMsg('#auth-msg', true, '登录成功');
+      })
+      .catch(function (e) {
+        showMsg('#auth-msg', false, e.message);
+      });
+  }
+
+  function doLogout() {
+    var done = function (text) {
+      clearSession();
+      render();
+      showMsg('#auth-msg', true, text || '已退出登录');
+    };
+    if (!state.token) return done();
+
+    api('POST', ROUTES.logout).then(function () {
+      done('已退出登录（服务端已确认）');
+    }).catch(function (e) {
+      // 后端没实现 logout 也允许退出：JWT 是无状态的，删掉本地 token 即可
+      log('info', '退出接口不可用（' + e.message + '），按纯前端退出处理');
+      done('已退出登录（本地清除 token）');
+    });
+  }
+
+  // ---------- 个人信息 ----------
+
+  function loadProfile() {
+    api('GET', ROUTES.profile).then(function (data) {
+      // 兼容三种返回：{Code, user:{...}} / {data:{...}} / 直接 {...}
+      var u = (data && (data.user || data.User || data.data)) || data || {};
+      state.user = u;
+
+      var id = pick(u, 'id', 'ID');
+      var name = pick(u, 'username', 'Username');
+      var created = pick(u, 'created_at', 'CreatedAt');
+
+      $('#u-id').textContent = (id === undefined || id === null || id === '') ? '—' : String(id);
+      if (name) {
+        $('#u-name').textContent = name;
+        $('#who').textContent = '已登录：' + name;
+        $('#profile-username').placeholder = '新的用户名（当前 ' + name + '）';
+      }
+      $('#u-created').textContent = created ? fmtTime(created) : '—';
+
+      // 后端少返回字段时明确说明，而不是留空让人猜
+      var missing = [];
+      if (id === undefined || id === null || id === '') missing.push('ID');
+      if (!created) missing.push('注册时间');
+      $('#profile-hint').textContent = missing.length
+        ? '后端 GET /api/user/profile 目前没有返回 ' + missing.join(' 和 ') +
+          '，这两格只能是 —（用户名和登录有效期来自 token，不受影响）。'
+        : '';
+    }).catch(function (e) {
+      if (e.status === 404) {
+        log('info', '后端未实现 GET /api/user/profile，改用 token 里的信息展示');
+        $('#u-id').textContent = '—';
+        $('#u-created').textContent = '—';
+        $('#profile-hint').textContent =
+          '后端还没有 GET /api/user/profile：用户名和登录有效期是从 token 里解析出来的，' +
+          'ID 和注册时间只有服务端知道，需要补上该接口才能显示。';
+        return;
+      }
+      showMsg('#profile-msg', false, e.message);
+    });
+  }
+
+  function currentUsername() {
+    if (state.user) {
+      var n = pick(state.user, 'username', 'Username');
+      if (n) return n;
+    }
+    var c = tokenClaims();
+    return (c && (c.username || c.Username)) || '';
+  }
+
+  function doUpdateProfile() {
+    clearMsg('#profile-msg');
+    var username = $('#profile-username').value.trim();
+    var pwd = $('#profile-password').value;
+    var before = currentUsername();
+
+    if (!username) return showMsg('#profile-msg', false, '请填写新的用户名');
+    if (!pwd) return showMsg('#profile-msg', false, '请填写密码：这个接口会同时更新密码，留空会把密码改成空');
+
+    api('PATCH', ROUTES.updateProfile, { Username: username, Password: pwd })
+      .then(function () {
+        $('#profile-username').value = '';
+        $('#profile-password').value = '';
+
+        if (before && username !== before) {
+          // 用户名变了，旧 token 里的 username 就对不上了，必须重新登录
+          clearSession();
+          render();
+          showMsg('#auth-msg', true, '用户名已改为 ' + username + '，旧登录态失效，请用新用户名重新登录');
+          return;
+        }
+
+        showMsg('#profile-msg', true, '已保存');
+        loadProfile();
+      })
+      .catch(function (e) {
+        if (e.status === 400 && e.message.indexOf('占用') >= 0) {
+          showMsg('#profile-msg', false,
+            e.message + '（后端查重时没排除当前用户：改成 Where("username = ? AND id <> ?", ...) 就能改回同名）');
+          return;
+        }
+        showMsg('#profile-msg', false, e.message);
+      });
+  }
+
+  function doChangePassword() {
+    clearMsg('#pwd-msg');
+    var oldPwd = $('#pwd-old').value;
+    var newPwd = $('#pwd-new').value;
+    var newPwd2 = $('#pwd-new2').value;
+
+    if (!oldPwd) return showMsg('#pwd-msg', false, '请填写当前密码');
+    if (newPwd.length < 6) return showMsg('#pwd-msg', false, '新密码至少 6 位');
+    if (newPwd !== newPwd2) return showMsg('#pwd-msg', false, '两次输入的新密码不一致');
+
+    var name = currentUsername();
+    if (!name) return showMsg('#pwd-msg', false, '拿不到当前用户名，请点「刷新」后再试');
+
+    api('PATCH', ROUTES.updateProfile, { Username: name, Password: newPwd })
+      .then(function () {
+        $('#pwd-old').value = $('#pwd-new').value = $('#pwd-new2').value = '';
+        showMsg('#pwd-msg', true, '密码已修改（JWT 无状态，旧 token 仍然有效）');
+      })
+      .catch(function (e) {
+        if (e.status === 400 && e.message.indexOf('占用') >= 0) {
+          showMsg('#pwd-msg', false,
+            '改密码失败：后端把"当前用户名"也当成重名了。需要给查重加上排除自己：' +
+            'Where("username = ? AND id <> ?", update.Username, user.ID)');
+          return;
+        }
+        showMsg('#pwd-msg', false, e.message);
+      });
+  }
+
+  // ---------- Todo ----------
+
+  function todoId(t) { return pick(t, 'id', 'ID'); }
+
+  function loadTodos() {
+    clearMsg('#todo-msg');
+
+    api('GET', ROUTES.todoList).then(function (data) {
+      var todos = [];
+      if (Array.isArray(data)) todos = data;
+      else if (data && Array.isArray(data.todos)) todos = data.todos;
+      else if (data && Array.isArray(data.list)) todos = data.list;
+
+      // 后端 getTodos 不接收筛选参数，完成状态在前端过滤
+      var filter = $('#todo-filter').value;
+      if (filter !== '') {
+        var want = filter === 'true';
+        todos = todos.filter(function (t) {
+          return !!pick(t, 'completed', 'Completed') === want;
+        });
+      }
+      renderTodos(todos);
+      $('#todo-count').textContent = '共 ' + todos.length + ' 条';
+    }).catch(function (e) {
+      $('#todo-list').innerHTML = '';
+      $('#todo-count').textContent = '';
+      if (e.status === 404) {
+        showMsg('#todo-msg', false, '后端还没有 GET ' + ROUTES.todoList + '，请实现后再测');
+        return;
+      }
+      showMsg('#todo-msg', false, e.message);
+    });
+  }
+
+  function renderTodos(todos) {
+    var box = $('#todo-list');
+    box.innerHTML = '';
+
+    if (!todos.length) {
+      var empty = document.createElement('div');
+      empty.className = 'hint';
+      empty.textContent = '暂无待办';
+      box.appendChild(empty);
+      return;
+    }
+
+    todos.forEach(function (t) {
+      var id = todoId(t);
+      var done = !!pick(t, 'completed', 'Completed');
+
+      var item = document.createElement('div');
+      item.className = 'todo' + (done ? ' done' : '');
+
+      var head = document.createElement('div');
+      head.className = 'head';
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = done;
+      cb.title = '标记完成 / 取消完成';
+      cb.onchange = function () { patchTodo(t, { completed: cb.checked }); };
+
+      // 后端 UpdateTodo 目前只能改 Content（入参字段名 msg）和 completed，
+      // 所以标题只做展示，不在这里改
+      var title = document.createElement('span');
+      title.className = 'title-text';
+      title.textContent = pick(t, 'title', 'Title') || '(无标题)';
+
+      var meta = document.createElement('span');
+      meta.className = 'id';
+      meta.textContent = '#' + id + ' · ' + fmtTime(pick(t, 'created_at', 'CreatedAt'));
+
+      var ctx = document.createElement('input');
+      ctx.className = 'ctx';
+      ctx.value = pick(t, 'content', 'Content') || '';
+      ctx.placeholder = '内容';
+
+      var save = document.createElement('button');
+      save.className = 'ghost';
+      save.textContent = '保存内容';
+      save.onclick = function () { patchTodo(t, { msg: ctx.value }); };
+
+      var del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = '删除';
+      del.onclick = function () { removeTodo(t); };
+
+      head.appendChild(cb);
+      head.appendChild(title);
+      head.appendChild(meta);
+      head.appendChild(save);
+      head.appendChild(del);
+
+      item.appendChild(head);
+      item.appendChild(ctx);
+      box.appendChild(item);
+    });
+  }
+
+  // 后端 UpdateTodo 的入参是 {msg, completed}，且两个字段是整体覆盖的：
+  // 没改的那个必须带上原值，否则内容会被清空 / 完成状态会被重置为 false。
+  function patchTodo(t, changes) {
+    var id = todoId(t);
+    var body = {
+      msg: changes.msg !== undefined ? changes.msg : (pick(t, 'content', 'Content') || ''),
+      completed: changes.completed !== undefined ? changes.completed : !!pick(t, 'completed', 'Completed')
+    };
+    api('PATCH', ROUTES.todoUpdate(id), body).then(function () {
+      showMsg('#todo-msg', true, '已更新 #' + id);
+      loadTodos();
+    }).catch(function (e) {
+      showMsg('#todo-msg', false, e.message);
+      loadTodos(); // 失败时回滚界面到服务端真实状态
+    });
+  }
+
+  function removeTodo(t) {
+    var id = todoId(t);
+    if (!window.confirm('确定删除 #' + id + ' 吗？')) return;
+    api('DELETE', ROUTES.todoDelete(id)).then(function () {
+      showMsg('#todo-msg', true, '已删除 #' + id);
+      loadTodos();
+    }).catch(function (e) {
+      showMsg('#todo-msg', false, e.message);
+    });
+  }
+
+  function doCreateTodo() {
+    clearMsg('#todo-msg');
+    var title = $('#todo-title').value.trim();
+    var ctx = $('#todo-ctx').value;
+    if (!title) return showMsg('#todo-msg', false, '请填写标题');
+
+    api('POST', ROUTES.todoCreate, { Title: title, Content: ctx }).then(function () {
+      $('#todo-title').value = '';
+      $('#todo-ctx').value = '';
+      showMsg('#todo-msg', true, '创建成功');
+      loadTodos();
+    }).catch(function (e) {
+      showMsg('#todo-msg', false, e.message);
+    });
+  }
+
+  // ---------- 事件绑定 ----------
+
+  var tabs = document.querySelectorAll('.tabs button');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener('click', function () {
+      switchTab(this.getAttribute('data-tab'));
+      clearMsg('#auth-msg');
+    });
+  }
+
+  $('#btn-register').addEventListener('click', doRegister);
+  $('#btn-login').addEventListener('click', doLogin);
+  $('#btn-logout').addEventListener('click', doLogout);
+
+  $('#btn-update-profile').addEventListener('click', doUpdateProfile);
+  $('#btn-refresh-profile').addEventListener('click', loadProfile);
+  $('#btn-change-pwd').addEventListener('click', doChangePassword);
+
+  $('#btn-create-todo').addEventListener('click', doCreateTodo);
+  $('#btn-refresh-todos').addEventListener('click', loadTodos);
+  $('#todo-filter').addEventListener('change', loadTodos);
+  $('#btn-clear-log').addEventListener('click', function () { $('#log').innerHTML = ''; });
+
+  // 回车提交
+  [['#login-username', doLogin], ['#login-password', doLogin],
+   ['#reg-username', doRegister], ['#reg-password', doRegister], ['#reg-password2', doRegister],
+   ['#todo-title', doCreateTodo], ['#todo-ctx', doCreateTodo],
+   ['#pwd-old', doChangePassword], ['#pwd-new', doChangePassword], ['#pwd-new2', doChangePassword],
+   ['#profile-username', doUpdateProfile]].forEach(function (pair) {
+    $(pair[0]).addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); pair[1](); }
+    });
+  });
+
+  // API 地址：由后端托管时固定用当前源，避免 localStorage 里残留的旧端口（8080/3001）把请求全打挂
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    $('#api-base').value = DEFAULT_API;
+  } else {
+    $('#api-base').value = localStorage.getItem(API_KEY) || DEFAULT_API;
+    showMsg('#global-msg', false,
+      '你是用 file:// 直接打开的这个文件，浏览器的跨域限制会拦掉所有请求。' +
+      '请改访问 http://localhost:3000/ （由后端托管同一个文件）。');
+  }
+  $('#api-base').addEventListener('change', function () {
+    localStorage.setItem(API_KEY, apiBase());
+  });
+
+  // 首次渲染：有 token 会尝试加载，401 会自动回到登录页
+  render();
+})();
+</script>
+</body>
+</html>

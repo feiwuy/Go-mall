@@ -1,0 +1,13 @@
+app:
+  name: GoMallApp
+  port: :3000
+
+database:
+  host: 192.168.1.123
+  port: 3306
+  user: xfw
+  password: 1234
+  name: go_mall_db
+  maxidleconns: 10
+  maxopenconns: 100
+
