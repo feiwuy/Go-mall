@@ -24,7 +24,7 @@ func SetUpRouter() *gin.Engine {
 		user.POST("login", controllers.Login)
 	}
 
-	user.Use(middleware.AuthMiddleware()) 
+	user.Use(middleware.AuthMiddleware())
 	{
 		user.GET("profile", controllers.GetProfile)
 		user.PATCH("updateProfile", controllers.UpdateProfile)

@@ -25,8 +25,9 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// 解析token获取username
-		username, err := utils.PraseJWT(token)
+		username, userID, err := utils.ParseJWT(token)
 		if err != nil {
+			log.Printf("failed to prase token, error = %v", err)
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			ctx.Abort()
 			return
@@ -37,17 +38,16 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// 判断用户是否被删除并获取id
 		var user models.User
-		if err := global.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		if err := global.DB.First(&user, userID).Error; err != nil {
 			log.Printf("failed to login, error = %v", err)
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "该用户不存在"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "登录失效,请重新登录"})
 			ctx.Abort()
 			return
 		}
 
 		// 将用户信息传入上下文
-		ctx.Set("username", user.Username)
-		ctx.Set("user_id", user.ID)
-
+		ctx.Set("user_id", userID)
+		ctx.Set("user", user)
 
 		// 调用下一个处理函数
 		ctx.Next()

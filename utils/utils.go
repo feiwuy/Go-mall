@@ -3,6 +3,7 @@ package utils
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -16,10 +17,11 @@ func HashPwd(pwd string) (string, error) {
 }
 
 // GetToken 获取JWTToken
-func GetToken(username string) (string, error) {
+func GetToken(username string, userID uint) (string, error) {
 	// 载荷里放过期时间和用户名
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"username": username,
+		"userID":   userID,
 		"exp":      time.Now().Add(time.Hour * 72).Unix(), // 过期时间
 	})
 	// 用密钥进行签名, 签名不代表加密, 只是为了确保token是自己签发的
@@ -33,9 +35,10 @@ func CheckPassWord(Pwd, hashedPwd string) bool {
 	return err == nil
 }
 
-// PraseJWT 解析JWT
-func PraseJWT(tokenstring string) (string, error) {
-	if len(tokenstring) >= 7 && tokenstring[:7] == "Bearer " {
+// ParseJWT 解析JWT
+func ParseJWT(tokenstring string) (string, uint, error) {
+	// EqualFold不区分大小写判断是否相同
+	if len(tokenstring) >= 7 && strings.EqualFold(tokenstring[:7], "Bearer ") {
 		tokenstring = tokenstring[7:]
 	}
 
@@ -43,23 +46,30 @@ func PraseJWT(tokenstring string) (string, error) {
 	token, err := jwt.Parse(tokenstring, func(token *jwt.Token) (interface{}, error) {
 		// 类型断言, 判断token的签名方法是否正确
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("Unexpected singing method!")
+			return nil, errors.New("unexpected signing method")
 		}
 		// 返回密钥
 		return []byte("secret"), nil
 	})
 
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	// 类型断言, 查看token的声明方法是否正确
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		username, ok := claims["username"].(string)
 		if !ok {
-			return "", errors.New("Username claim is not a string")
+			return "", 0, errors.New("username claim is not a string")
 		}
-		return username, err
+		userID, ok := claims["userID"].(float64)
+		if !ok {
+			return "", 0, errors.New("userID claim is not a number")
+		}
+		if _, ok := claims["exp"]; !ok {
+			return "", 0, errors.New("exp claim missing")
+		}
+		return username, uint(userID), err
 	}
-	return "", err
+	return "", 0, errors.New("invalid token")
 }

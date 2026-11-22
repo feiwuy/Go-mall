@@ -38,4 +38,3 @@ func InitDB() {
 		return
 	}
 }
-
