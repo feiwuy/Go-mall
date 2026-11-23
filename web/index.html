@@ -90,10 +90,10 @@
     </table>
     <div class="row">
       <input id="u-new-name" placeholder="新用户名" />
-      <input id="u-new-pass" type="password" placeholder="密码（必填）" autocomplete="new-password" />
+      <input id="u-new-pass" type="password" placeholder="密码（必填，至少 6 位）" autocomplete="new-password" />
       <button id="btn-save-info">保存</button>
     </div>
-    <div class="hint">这个接口会同时更新用户名和密码；改名后旧登录态失效，需要重新登录。</div>
+    <div class="hint">这个接口会同时更新用户名和密码，两栏都必填；改名后仍保持登录，无需重新登录。</div>
     <div class="msg" id="info-msg"></div>
   </section>
 
@@ -146,6 +146,11 @@
     el.textContent = '';
   }
 
+  // 401 已经由 request() 统一提示并退回登录页，调用方不再重复弹错
+  function fail(sel, e) {
+    if (!e.unauthorized) msg(sel, false, e.message);
+  }
+
   function fmt(v) {
     if (!v) return '-';
     var d = new Date(v);
@@ -174,7 +179,9 @@
         if (res.status === 401) {
           logout();
           msg('#auth-msg', false, '登录已失效，请重新登录');
-          throw new Error('未登录');
+          var err = new Error('未登录');
+          err.unauthorized = true;
+          throw err;
         }
         if (!res.ok) {
           var m = (data && (data.error || data.msg || data.message)) || ('HTTP ' + res.status);
@@ -203,6 +210,11 @@
     token = '';
     me = null;
     localStorage.removeItem(KEY);
+    ['#li-pass', '#u-new-name', '#u-new-pass', '#pwd-new', '#pwd-new2',
+     '#todo-title', '#todo-content'].forEach(function (s) {
+      var el = $(s);
+      if (el) el.value = '';
+    });
     clearMsg('#info-msg');
     clearMsg('#pwd-msg');
     clearMsg('#todo-msg');
@@ -238,7 +250,7 @@
     if (p1.length < 6) return msg('#auth-msg', false, '密码至少 6 位');
     if (p1 !== p2) return msg('#auth-msg', false, '两次输入的密码不一致');
 
-    request('POST', '/api/user/register', { username: username, password: p1 })
+    request('POST', '/api/users', { username: username, password: p1 })
       .then(function () {
         $('#rg-user').value = $('#rg-pass').value = $('#rg-pass2').value = '';
         switchTab('login');
@@ -254,7 +266,7 @@
     var password = $('#li-pass').value;
     if (!username || !password) return msg('#auth-msg', false, '请填写用户名和密码');
 
-    request('POST', '/api/user/login', { username: username, password: password })
+    request('POST', '/api/users/login', { username: username, password: password })
       .then(function (data) {
         token = (data && (data.token || data.Token)) || '';
         if (!token) throw new Error('登录成功但响应里没有 token');
@@ -275,7 +287,7 @@
   // ---------- 我的信息 ----------
 
   function loadProfile() {
-    request('GET', '/api/user/profile')
+    request('GET', '/api/users/profile')
       .then(function (data) {
         me = (data && data.user) || {};
         $('#u-id').textContent = me.id === undefined ? '-' : me.id;
@@ -283,7 +295,7 @@
         $('#u-created').textContent = fmt(me.created_at);
         $('#who').textContent = '已登录：' + (me.username || '');
       })
-      .catch(function (e) { msg('#info-msg', false, e.message); });
+      .catch(function (e) { fail('#info-msg', e); });
   }
 
   function saveInfo() {
@@ -292,24 +304,16 @@
     var pwd = $('#u-new-pass').value;
 
     if (!name) return msg('#info-msg', false, '请填写新用户名');
-    if (!pwd) return msg('#info-msg', false, '请填写密码（该接口会同时更新密码）');
+    if (pwd.length < 6) return msg('#info-msg', false, '密码至少 6 位');
 
-    var renamed = me && me.username && name !== me.username;
-
-    request('PATCH', '/api/user/updateProfile', { Username: name, Password: pwd })
+    request('PATCH', '/api/users/profile', { Username: name, Password: pwd })
       .then(function () {
         $('#u-new-name').value = '';
         $('#u-new-pass').value = '';
-        if (renamed) {
-          // token 里存的是旧用户名，改名后失效
-          logout();
-          msg('#auth-msg', true, '用户名已改为 ' + name + '，请用新用户名重新登录');
-          return;
-        }
         msg('#info-msg', true, '保存成功');
-        loadProfile();
+        loadProfile();   // 顶栏用户名同步刷新；token 里存的是 userID，改名不会掉线
       })
-      .catch(function (e) { msg('#info-msg', false, e.message); });
+      .catch(function (e) { fail('#info-msg', e); });
   }
 
   // ---------- 修改密码 ----------
@@ -323,23 +327,23 @@
     if (p1 !== p2) return msg('#pwd-msg', false, '两次输入的密码不一致');
     if (!me || !me.username) return msg('#pwd-msg', false, '还没取到用户名，请刷新页面');
 
-    request('PATCH', '/api/user/updateProfile', { Username: me.username, Password: p1 })
+    request('PATCH', '/api/users/profile', { Username: me.username, Password: p1 })
       .then(function () {
         $('#pwd-new').value = '';
         $('#pwd-new2').value = '';
         msg('#pwd-msg', true, '密码已修改');
       })
-      .catch(function (e) { msg('#pwd-msg', false, e.message); });
+      .catch(function (e) { fail('#pwd-msg', e); });
   }
 
   // ---------- 待办 ----------
 
   function loadTodos() {
-    request('GET', '/api/todo/getTodos')
+    request('GET', '/api/todos')
       .then(function (data) { renderTodos((data && data.todos) || []); })
       .catch(function (e) {
         $('#todo-list').innerHTML = '';
-        msg('#todo-msg', false, e.message);
+        fail('#todo-msg', e);
       });
   }
 
@@ -410,25 +414,25 @@
   }
 
   function patchTodo(t, changes) {
-    request('PATCH', '/api/todo/update/' + t.ID, changes)
+    request('PATCH', '/api/todos/' + t.ID, changes)
       .then(function () {
         msg('#todo-msg', true, '已更新 #' + t.ID);
         loadTodos();
       })
       .catch(function (e) {
-        msg('#todo-msg', false, e.message);
+        fail('#todo-msg', e);
         loadTodos(); // 失败时以服务端数据为准
       });
   }
 
   function removeTodo(t) {
     if (!window.confirm('确定删除 #' + t.ID + ' 吗？')) return;
-    request('DELETE', '/api/todo/delTodo/' + t.ID)
+    request('DELETE', '/api/todos/' + t.ID)
       .then(function () {
         msg('#todo-msg', true, '已删除 #' + t.ID);
         loadTodos();
       })
-      .catch(function (e) { msg('#todo-msg', false, e.message); });
+      .catch(function (e) { fail('#todo-msg', e); });
   }
 
   function createTodo() {
@@ -438,14 +442,14 @@
 
     if (!title) return msg('#todo-msg', false, '请填写标题');
 
-    request('POST', '/api/todo/create', { Title: title, Content: content })
+    request('POST', '/api/todos', { Title: title, Content: content })
       .then(function () {
         $('#todo-title').value = '';
         $('#todo-content').value = '';
         msg('#todo-msg', true, '添加成功');
         loadTodos();
       })
-      .catch(function (e) { msg('#todo-msg', false, e.message); });
+      .catch(function (e) { fail('#todo-msg', e); });
   }
 
   // ---------- 事件绑定 ----------
@@ -473,6 +477,27 @@
     $(pair[0]).addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); pair[1](); }
     });
+  });
+
+  // 另一个标签页登录/退出时，本页跟着同步
+  window.addEventListener('storage', function (e) {
+    if (e.key !== KEY) return;
+    token = localStorage.getItem(KEY) || '';
+    if (!token) {
+      logout('已在其他标签页退出登录');
+      return;
+    }
+    onLoggedIn();
+  });
+
+  // 浏览器前进/后退从 bfcache 恢复时，重新同步 token 与服务端数据
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    token = localStorage.getItem(KEY) || '';
+    if (!token) { logout(); return; }
+    render();
+    loadProfile();
+    loadTodos();
   });
 
   // 首屏：有 token 就直接进应用，401 会自动回登录页

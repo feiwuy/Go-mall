@@ -31,7 +31,7 @@ func CreateTodo(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"todo": todo})
+	ctx.JSON(http.StatusCreated, gin.H{"todo": todo})
 }
 
 func GetTodos(ctx *gin.Context) {
@@ -52,7 +52,7 @@ func GetTodoByID(ctx *gin.Context) {
 
 	if err := global.DB.Where("user_id = ? AND id = ?", ctx.GetUint("user_id"), id).First(&todo).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "该todo不属于您"})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "不存在或无权访问"})
 			return
 		}
 		log.Printf("failed to get todo, error = %v", err)
@@ -65,7 +65,7 @@ func GetTodoByID(ctx *gin.Context) {
 
 func UpdateTodo(ctx *gin.Context) {
 	type Update struct {
-		Msg       string `json:"msg"`
+		Context   string `json:"msg"`
 		Completed bool   `json:"completed"`
 	}
 	var update Update
@@ -75,7 +75,7 @@ func UpdateTodo(ctx *gin.Context) {
 	var todo models.TodoList
 	if err := global.DB.Where("user_id = ? AND id = ?", ctx.GetUint("user_id"), id).First(&todo).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "该todo不属于您"})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "不存在或无权访问"})
 			return
 		}
 		log.Printf("failed to get todo, error = %v", err)
@@ -89,7 +89,7 @@ func UpdateTodo(ctx *gin.Context) {
 		return
 	}
 
-	todo.Content = update.Msg
+	todo.Content = update.Context
 	todo.Completed = update.Completed
 
 	if err := global.DB.Save(&todo).Error; err != nil {
@@ -107,7 +107,7 @@ func DelTodo(ctx *gin.Context) {
 
 	if err := global.DB.Where("user_id = ? AND id = ?", ctx.GetUint("user_id"), id).First(&todo).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "该todo不属于您"})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "不存在或无权访问"})
 			return
 		}
 		log.Printf("failed to del todo, error = %v", err)
