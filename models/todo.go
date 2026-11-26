@@ -6,8 +6,8 @@ import (
 
 type TodoList struct {
 	gorm.Model
-	Title     string
-	Content   string
-	Completed bool
-	UserID    uint `gorm:"index"` // 外键. 落在todo_lists上
+	Title     string	`gorm:"not null"`
+	Content   string	`gorm:"not null"`
+	Completed bool		`gorm:"not null"`
+	UserID    uint		`gorm:"index;not null"` // 外键. 落在todo_lists上
 }

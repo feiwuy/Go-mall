@@ -2,6 +2,7 @@
 package controllers
 
 import (
+	"errors"
 	"gomall/global"
 	"gomall/models"
 	"gomall/utils"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // Register 存储注册逻辑
@@ -81,8 +83,12 @@ func Login(ctx *gin.Context) {
 
 	// 验证用户是否存在
 	if err := global.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+			return
+		}
 		log.Printf("failed to login, error = %v", err)
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "服务器错误,请稍后再试"})
 		return
 	}
 
@@ -105,7 +111,7 @@ func Login(ctx *gin.Context) {
 func GetProfile(ctx *gin.Context) {
 	user := ctx.MustGet("user").(models.User)
 
-	ctx.JSON(http.StatusOK, gin.H{"user": gin.H{"id": user.ID, "username": user.Username, "created_at": user.CreatedAt}})
+	ctx.JSON(http.StatusOK, gin.H{"msg": "查询成功", "user": gin.H{"id": user.ID, "username": user.Username, "created_at": user.CreatedAt}})
 }
 
 func UpdateProfile(ctx *gin.Context) {
@@ -134,13 +140,13 @@ func UpdateProfile(ctx *gin.Context) {
 
 	// 检测用户是否被占用
 	var count int64
-	if err := global.DB.Model(&models.User{}).Where("username = ? AND id <> ?", update.Username, userID).Count(&count).Error; err != nil {
+	if err := global.DB.Model(&models.User{}).Where("username = ? AND id != ?", update.Username, userID).Count(&count).Error; err != nil {
 		log.Printf("failed to generate token, error = %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "服务器错误,请稍后再试"})
 		return
 	}
 	if count > 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "该用户名已被占用"})
+		ctx.JSON(http.StatusConflict, gin.H{"error": "该用户名已被占用"})
 		return
 	}
 
@@ -166,5 +172,5 @@ func UpdateProfile(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"user": gin.H{"id": user.ID, "username": user.Username, "created_at": user.CreatedAt}})
+	ctx.JSON(http.StatusOK, gin.H{"msg": "修改成功", "user": gin.H{"user": gin.H{"id": user.ID, "username": user.Username, "created_at": user.CreatedAt}}})
 }

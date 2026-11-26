@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware 是一个用来判断用户登陆的中间件
+// AuthMiddleware 是一个鉴权中间件
 func AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// 从请求中获取Authorization
@@ -28,7 +28,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		username, userID, err := utils.ParseJWT(token)
 		if err != nil {
 			log.Printf("failed to prase token, error = %v", err)
-			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error":"登录失效,请重新登录"})
 			ctx.Abort()
 			return
 		}

@@ -31,7 +31,7 @@ func CreateTodo(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{"todo": todo})
+	ctx.JSON(http.StatusCreated, gin.H{"msg":"创建成功", "Title":todo.Title, "Content":todo.Content, "Completed":todo.Completed, "id": todo.ID})
 }
 
 func GetTodos(ctx *gin.Context) {
@@ -60,13 +60,14 @@ func GetTodoByID(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"todo": todo})
+	ctx.JSON(http.StatusOK, gin.H{"msg": "获取成功", "Title": todo.Title, "Content": todo.Content, "Completed": todo.Completed, "id": todo.ID})
 }
 
 func UpdateTodo(ctx *gin.Context) {
 	type Update struct {
-		Context   string `json:"msg"`
-		Completed bool   `json:"completed"`
+		Title		string	`json:"title"`
+		Context   	string 	`json:"content"`
+		Completed 	bool   	`json:"completed"`
 	}
 	var update Update
 
@@ -85,10 +86,11 @@ func UpdateTodo(ctx *gin.Context) {
 
 	if err := ctx.ShouldBindJSON(&update); err != nil {
 		log.Printf("failed to update todo, error = %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "服务器错误,请稍后再试"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "非法请求"})
 		return
 	}
 
+	todo.Title = update.Title
 	todo.Content = update.Context
 	todo.Completed = update.Completed
 
@@ -98,7 +100,7 @@ func UpdateTodo(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"todo": todo})
+	ctx.JSON(http.StatusOK, gin.H{"msg": "更新成功"})
 }
 
 func DelTodo(ctx *gin.Context) {

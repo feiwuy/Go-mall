@@ -25,8 +25,8 @@ func SetUpRouter() *gin.Engine {
 	}
 	user.Use(middleware.AuthMiddleware())
 	{
-		user.GET("profile", controllers.GetProfile)
-		user.PATCH("profile", controllers.UpdateProfile)
+		user.GET("", controllers.GetProfile)
+		user.PATCH("", controllers.UpdateProfile)
 	}
 
 	todo := r.Group("/api/todos")
