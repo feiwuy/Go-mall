@@ -357,7 +357,7 @@ func TodoReadTest(t *testing.T, id, token string, code int) {
 	assert.Equal(t, code, w.Code)
 
 	switch code {
-		case http.StatusCreated:
+		case http.StatusOK:
 			var resp map[string]any
 			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 			assert.Equal(t, "获取成功", resp["msg"])
@@ -365,6 +365,28 @@ func TodoReadTest(t *testing.T, id, token string, code int) {
 			var resp map[string]string
 			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 			assert.Equal(t, "不存在或无权访问", resp["error"])
+		case http.StatusInternalServerError:
+			var resp map[string]string
+			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+			assert.Equal(t, "服务器错误,请稍后再试", resp["error"])
+	}
+}
+
+func TodoReadAllTest(t *testing.T, id, token string, code int) {
+	router := routers.SetUpRouter()
+
+	req, _ := http.NewRequest("GET", "/api/todos", strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", token)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, code, w.Code)
+
+	switch code {
+		case http.StatusOK:
+			var resp map[string]any
+			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+			assert.Equal(t, "获取成功", resp["msg"])
 		case http.StatusInternalServerError:
 			var resp map[string]string
 			assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
@@ -382,6 +404,12 @@ func TestTodo(t *testing.T) {
 	}
 	RegisterTest(t, user.Username, user.Password, http.StatusCreated)
 	token := LoginTest(t, user.Username, user.Password, http.StatusOK)
+	var other = User{
+		Username: fmt.Sprintf("test_%d", time.Now().UnixNano()),
+		Password: "123456",
+	}
+	RegisterTest(t, other.Username, other.Password, http.StatusCreated)
+	tokenOther := LoginTest(t, other.Username, other.Password, http.StatusOK)
 
 	// 创建初始化todo
 	var todo = Todo {
@@ -396,7 +424,10 @@ func TestTodo(t *testing.T) {
 	assert.NotEqual(t, "", id)
 
 	// 读取todo
+	TodoReadTest(t, id, tokenOther, http.StatusNotFound)
+	TodoReadTest(t, "fakeID", token, http.StatusNotFound)
 	TodoReadTest(t, id, token, http.StatusOK)
+	TodoReadAllTest(t, id, token, http.StatusOK)
 
 	// 更新后的todo
 	var todoNew = Todo {
@@ -404,6 +435,7 @@ func TestTodo(t *testing.T) {
 		Content: "test_content2",
 		Completed: true,
 	}
+
 	// 更新todo
 	TodoUpdateTest(t, token, id+"1", http.StatusNotFound, todoNew)
 	TodoUpdateTest(t, token+"1", id, http.StatusUnauthorized, todoNew)
@@ -412,5 +444,7 @@ func TestTodo(t *testing.T) {
 	// 删除todo
 	TodoDeleteTest(t, token, id+"1", http.StatusNotFound)
 	TodoDeleteTest(t, token+"1", id, http.StatusUnauthorized)
+	TodoDeleteTest(t, token, "fakeID", http.StatusNotFound)
+	TodoDeleteTest(t, tokenOther, id, http.StatusNotFound)
 	TodoDeleteTest(t, token, id, http.StatusOK)
 }

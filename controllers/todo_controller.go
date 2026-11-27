@@ -43,7 +43,7 @@ func GetTodos(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"todos": todos})
+	ctx.JSON(http.StatusOK, gin.H{"msg": "获取成功","todos": todos})
 }
 
 func GetTodoByID(ctx *gin.Context) {

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="nanom">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -42,6 +42,122 @@
   .todo .row input { flex: 1; }
   .hint { color: #6b7280; font-size: 12px; }
   [hidden] { display: none !important; }
+
+  /* 页脚：两套主题共用的骨架 */
+  footer { max-width: 860px; margin: 0 auto 40px; padding: 0 14px; text-align: center; color: #6b7280; font-size: 12px; }
+  footer hr { border: none; border-bottom: 1px solid #e3e6ea; margin: 22px 0 8px; }
+
+  /* ================= 主题 nanom（暗色）· 上面的亮色规则原样保留 ================= */
+  html[data-theme="nanom"] {
+    --nm-bg: #322f3e;
+    --nm-card: #3a3750;
+    --nm-input: #2b2839;
+    --nm-line: #4a4660;
+    --nm-rule: #875bbb;
+    --nm-text: #b1b3cd;
+    --nm-dim: #9fa1bd;
+    --nm-pink: #ff77a8;
+    --nm-pink-hot: #ff004d;
+    --nm-teal: #5dafa3;
+    --nm-red: #ff6b6b;
+    --nm-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  html[data-theme="nanom"] body {
+    background-color: var(--nm-bg);
+    background-image: repeating-linear-gradient(180deg, rgba(255,255,255,.015) 0 1px, transparent 1px 26px);
+    color: var(--nm-text);
+    line-height: 1.8;
+  }
+
+  html[data-theme="nanom"] header {
+    max-width: 760px; margin: 26px auto 0; padding: 0 14px 10px;
+    background: transparent; border-bottom: 1px solid var(--nm-rule);
+  }
+  html[data-theme="nanom"] header h1 {
+    font: 700 17px/1.4 var(--nm-mono); letter-spacing: .06em;
+    color: var(--nm-text); text-shadow: 2px 2px #50537c;
+  }
+  html[data-theme="nanom"] header h1::before { content: '#! '; color: var(--nm-pink); }
+  html[data-theme="nanom"] header .who { color: var(--nm-dim); font-family: var(--nm-mono); }
+  html[data-theme="nanom"] header button { background: transparent; color: var(--nm-text); border-color: var(--nm-line); }
+
+  html[data-theme="nanom"] main { max-width: 760px; margin-top: 20px; }
+
+  html[data-theme="nanom"] .card {
+    background: var(--nm-card); border: 1px solid var(--nm-line); border-radius: 2px;
+  }
+  html[data-theme="nanom"] .card h2 {
+    font: 700 13px/1.4 var(--nm-mono); letter-spacing: .1em; color: var(--nm-text);
+  }
+  html[data-theme="nanom"] .card h2::before { content: '> '; color: var(--nm-pink-hot); }
+
+  html[data-theme="nanom"] input {
+    background: var(--nm-input); border: 1px solid var(--nm-line);
+    border-radius: 2px; color: var(--nm-text);
+  }
+  html[data-theme="nanom"] input::placeholder { color: var(--nm-dim); }
+  html[data-theme="nanom"] input:focus {
+    outline: 1px solid var(--nm-pink); outline-offset: 0; border-color: var(--nm-pink);
+  }
+  html[data-theme="nanom"] input[type="checkbox"] {
+    accent-color: var(--nm-pink); width: 15px; height: 15px;
+  }
+
+  html[data-theme="nanom"] button {
+    background: transparent; color: var(--nm-text);
+    border: 1px solid var(--nm-line); border-radius: 2px;
+    font-family: var(--nm-mono); font-size: 12px; letter-spacing: .05em;
+    transition: color .2s ease-in-out, border-color .2s ease-in-out;
+  }
+  html[data-theme="nanom"] button:hover { color: var(--nm-pink); border-color: var(--nm-pink); }
+  html[data-theme="nanom"] button.ghost { background: transparent; color: var(--nm-dim); border-color: var(--nm-line); }
+  html[data-theme="nanom"] button.danger { background: transparent; color: #ff5447; border-color: #6e3a3a; }
+  html[data-theme="nanom"] button.danger:hover { color: var(--nm-pink-hot); border-color: #ff5447; }
+
+  html[data-theme="nanom"] .tabs button {
+    background: transparent; border-color: transparent; color: var(--nm-dim);
+  }
+  html[data-theme="nanom"] .tabs button.active {
+    background: transparent; color: var(--nm-pink);
+    border-color: transparent; border-bottom: 1px dotted var(--nm-pink);
+  }
+
+  html[data-theme="nanom"] .msg {
+    background: none; border: none; border-radius: 0;
+    border-left: 2px solid var(--nm-line); padding: 6px 10px; color: var(--nm-text);
+  }
+  html[data-theme="nanom"] .msg.ok {
+    background: none; border: none; border-left: 2px solid var(--nm-teal); color: var(--nm-teal);
+  }
+  html[data-theme="nanom"] .msg.ok::before { content: '[ok] '; }
+  html[data-theme="nanom"] .msg.err {
+    background: none; border: none; border-left: 2px solid var(--nm-red); color: var(--nm-red);
+  }
+  html[data-theme="nanom"] .msg.err::before { content: '[!] '; }
+
+  html[data-theme="nanom"] table.kv td { border-bottom: 1px dashed var(--nm-line); }
+  html[data-theme="nanom"] table.kv td:first-child {
+    color: var(--nm-dim); font-family: var(--nm-mono); font-size: 12px;
+  }
+
+  html[data-theme="nanom"] .todo {
+    background: none; border: none; border-left: 2px solid var(--nm-line); border-radius: 0;
+  }
+  html[data-theme="nanom"] .todo .title { font-family: var(--nm-mono); }
+  html[data-theme="nanom"] .todo .id { color: var(--nm-dim); font-family: var(--nm-mono); }
+  html[data-theme="nanom"] .todo.done .title { text-decoration: line-through; color: var(--nm-dim); }
+  html[data-theme="nanom"] .todo.done { border-left-color: var(--nm-rule); }
+
+  html[data-theme="nanom"] .hint { color: var(--nm-dim); }
+  html[data-theme="nanom"] a { color: var(--nm-pink); text-decoration: none; border-bottom: 1px dotted; }
+  html[data-theme="nanom"] a:hover { color: var(--nm-pink-hot); }
+
+  html[data-theme="nanom"] footer {
+    max-width: 760px; color: var(--nm-dim);
+    font-family: var(--nm-mono); font-size: 11px;
+  }
+  html[data-theme="nanom"] footer hr { border-bottom: 1px solid var(--nm-rule); }
 </style>
 </head>
 <body>
@@ -50,6 +166,7 @@
   <h1>GoMall · 登录与待办</h1>
   <span class="who" id="who">未登录</span>
   <div class="spacer"></div>
+  <button class="ghost" id="btn-theme" title="切换主题">切到亮色</button>
   <button class="ghost" id="btn-logout" hidden>退出登录</button>
 </header>
 
@@ -124,6 +241,11 @@
   </section>
 </main>
 
+<footer>
+  <hr>
+  <small>GoMall · 第一轮 · Gin + GORM + MySQL</small>
+</footer>
+
 <script>
 (function () {
   'use strict';
@@ -133,6 +255,26 @@
   var me = null;
 
   function $(s) { return document.querySelector(s); }
+
+  // ---------- 主题切换：nanom（暗色） / light（原亮色） ----------
+  var THEME_KEY = 'gomall_theme';
+
+  function applyTheme(name) {
+    var root = document.documentElement;
+    if (name === 'nanom') {
+      root.setAttribute('data-theme', 'nanom');
+      $('#btn-theme').textContent = '切到亮色';
+    } else {
+      root.removeAttribute('data-theme');
+      $('#btn-theme').textContent = '切到暗色';
+    }
+    localStorage.setItem(THEME_KEY, name);
+  }
+
+  function toggleTheme() {
+    var cur = document.documentElement.getAttribute('data-theme') === 'nanom' ? 'nanom' : 'light';
+    applyTheme(cur === 'nanom' ? 'light' : 'nanom');
+  }
 
   function msg(sel, ok, text) {
     var el = $(sel);
@@ -473,6 +615,7 @@
   $('#btn-save-info').addEventListener('click', saveInfo);
   $('#btn-change-pwd').addEventListener('click', changePassword);
   $('#btn-create-todo').addEventListener('click', createTodo);
+  $('#btn-theme').addEventListener('click', toggleTheme);
 
   [['#li-user', login], ['#li-pass', login],
    ['#rg-user', register], ['#rg-pass', register], ['#rg-pass2', register],
@@ -505,7 +648,8 @@
     loadTodos();
   });
 
-  // 首屏：有 token 就直接进应用，401 会自动回登录页
+  // 首屏：先定主题，再看是否有 token
+  applyTheme(localStorage.getItem(THEME_KEY) || 'nanom');
   render();
   if (token) onLoggedIn();
 })();

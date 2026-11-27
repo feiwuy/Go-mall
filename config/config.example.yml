@@ -3,11 +3,12 @@ app:
   port: :3000
 
 database:
-  host: 192.168.1.123
+  host: <DB-HOST>
   port: 3306
-  user: xfw
-  password: 1234
+  user: <DB-USER>
+  password: <DB-PASSWORD>
   name: go_mall_db
   maxidleconns: 10
   maxopenconns: 100
+
 
