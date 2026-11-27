@@ -158,7 +158,7 @@
   }
 
   // 统一请求：自动带 Authorization，401 自动回登录页，非 2xx 抛出后端错误文案
-  function request(method, path, body) {
+  function request(method, path, body, opts) {
     var headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (token) headers['Authorization'] = token.indexOf('Bearer ') === 0 ? token : 'Bearer ' + token;
@@ -176,7 +176,8 @@
         var data = null;
         if (text) { try { data = JSON.parse(text); } catch (e) { data = text; } }
 
-        if (res.status === 401) {
+        // 登录接口的 401 是"密码错"，不是"登录失效"，由调用方自己提示
+        if (res.status === 401 && !(opts && opts.skipAuthRedirect)) {
           logout();
           msg('#auth-msg', false, '登录已失效，请重新登录');
           var err = new Error('未登录');
@@ -266,7 +267,7 @@
     var password = $('#li-pass').value;
     if (!username || !password) return msg('#auth-msg', false, '请填写用户名和密码');
 
-    request('POST', '/api/users/login', { username: username, password: password })
+    request('POST', '/api/users/login', { username: username, password: password }, { skipAuthRedirect: true })
       .then(function (data) {
         token = (data && (data.token || data.Token)) || '';
         if (!token) throw new Error('登录成功但响应里没有 token');
@@ -287,7 +288,7 @@
   // ---------- 我的信息 ----------
 
   function loadProfile() {
-    request('GET', '/api/users/profile')
+    request('GET', '/api/users')
       .then(function (data) {
         me = (data && data.user) || {};
         $('#u-id').textContent = me.id === undefined ? '-' : me.id;
@@ -306,7 +307,7 @@
     if (!name) return msg('#info-msg', false, '请填写新用户名');
     if (pwd.length < 6) return msg('#info-msg', false, '密码至少 6 位');
 
-    request('PATCH', '/api/users/profile', { Username: name, Password: pwd })
+    request('PATCH', '/api/users', { username: name, password: pwd })
       .then(function () {
         $('#u-new-name').value = '';
         $('#u-new-pass').value = '';
@@ -327,7 +328,7 @@
     if (p1 !== p2) return msg('#pwd-msg', false, '两次输入的密码不一致');
     if (!me || !me.username) return msg('#pwd-msg', false, '还没取到用户名，请刷新页面');
 
-    request('PATCH', '/api/users/profile', { Username: me.username, Password: p1 })
+    request('PATCH', '/api/users', { username: me.username, password: p1 })
       .then(function () {
         $('#pwd-new').value = '';
         $('#pwd-new2').value = '';
@@ -373,7 +374,9 @@
       cb.checked = done;
       cb.title = '标记完成 / 取消完成';
       // 后端 update 是整体覆盖，没改的字段要带上原值
-      cb.onchange = function () { patchTodo(t, { msg: t.Content || '', completed: cb.checked }); };
+      cb.onchange = function () {
+        patchTodo(t, { title: t.Title || '', content: t.Content || '', completed: cb.checked });
+      };
 
       var title = document.createElement('span');
       title.className = 'title';
@@ -400,7 +403,9 @@
       var save = document.createElement('button');
       save.className = 'ghost';
       save.textContent = '保存内容';
-      save.onclick = function () { patchTodo(t, { msg: content.value, completed: done }); };
+      save.onclick = function () {
+        patchTodo(t, { title: t.Title || '', content: content.value, completed: cb.checked });
+      };
 
       var row = document.createElement('div');
       row.className = 'row';
@@ -442,7 +447,7 @@
 
     if (!title) return msg('#todo-msg', false, '请填写标题');
 
-    request('POST', '/api/todos', { Title: title, Content: content })
+    request('POST', '/api/todos', { title: title, content: content })
       .then(function () {
         $('#todo-title').value = '';
         $('#todo-content').value = '';
